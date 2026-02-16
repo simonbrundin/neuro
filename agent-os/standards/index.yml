@@ -1,0 +1,3 @@
+python:
+  project-structure:
+    description: Flat module structure, BASE_DIR pattern, config singleton, dataclass config, load_dotenv at import time
