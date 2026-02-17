@@ -19,6 +19,18 @@ class Config:
     smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
     check_interval: int = int(os.getenv("CHECK_INTERVAL", "300"))
+    min_change_threshold: float = 0.0
+
+    def __post_init__(self):
+        self._parse_threshold()
+
+    def _parse_threshold(self):
+        env_value = os.getenv("MIN_CHANGE_THRESHOLD", "0")
+        try:
+            value = float(env_value)
+            self.min_change_threshold = max(0.0, value)
+        except (ValueError, TypeError):
+            self.min_change_threshold = 0.0
 
     def get_recipient_list(self) -> list:
         if not self.recipient_email:
