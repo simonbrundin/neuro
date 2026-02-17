@@ -22,7 +22,12 @@ def save_state(data: dict):
         json.dump(data, f, indent=2)
 
 
-def get_portfolio_changes(current_data: dict, previous_data: dict) -> dict:
+def get_portfolio_changes(
+    current_data: dict, previous_data: dict, threshold: float = None
+) -> dict:
+    if threshold is None:
+        threshold = config.min_change_threshold
+
     current_portfolio = current_data.get("data", [])
     previous_portfolio = previous_data.get("data", [])
 
@@ -58,6 +63,11 @@ def get_portfolio_changes(current_data: dict, previous_data: dict) -> dict:
             try:
                 curr_pct = float(current_weight.replace("%", "").replace(",", "."))
                 prev_pct = float(prev_weight.replace("%", "").replace(",", "."))
+
+                change_pct = abs(curr_pct - prev_pct)
+
+                if change_pct < threshold:
+                    continue
 
                 if curr_pct > prev_pct:
                     increased.append(
