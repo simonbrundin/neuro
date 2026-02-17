@@ -12,13 +12,14 @@ TARGET_PORTFOLIO = "NQ Värde & Momentum"
 
 class NeuroQuantScraper:
     def __init__(self):
+        self.playwright = None
         self.browser: Browser | None = None
         self.context: BrowserContext | None = None
         self.page: Page | None = None
 
     async def __aenter__(self):
-        playwright = await async_playwright().start()
-        self.browser = await playwright.chromium.launch(headless=True)
+        self.playwright = await async_playwright().start()
+        self.browser = await self.playwright.chromium.launch(headless=True)
         self.context = await self.browser.new_context(
             user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
         )
@@ -28,6 +29,8 @@ class NeuroQuantScraper:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.browser:
             await self.browser.close()
+        if self.playwright:
+            await self.playwright.stop()
 
     async def _save_cookies(self):
         if self.context:
