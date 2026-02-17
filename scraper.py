@@ -3,10 +3,11 @@ import json
 from datetime import datetime
 from pathlib import Path
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page
-from pathlib import Path
 from config import config, STATE_FILE
 
 BASE_DIR = Path(__file__).parent
+
+TARGET_PORTFOLIO = "NQ Värde & Momentum"
 
 
 class NeuroQuantScraper:
@@ -140,34 +141,86 @@ class NeuroQuantScraper:
         except Exception:
             return False
 
+    async def _select_portfolio_with_retry(self, max_retries: int = 3) -> bool:
+        """Select the correct portfolio with retry logic."""
+        dropdown_selectors = [
+            "div.css-1uccc91-singleValue",
+            "[class*='singleValue']",
+            "[class*='Value']",
+            "[class*='dropdown']",
+        ]
+
+        for attempt in range(max_retries):
+            for selector in dropdown_selectors:
+                try:
+                    dropdown = await self.page.wait_for_selector(selector, timeout=5000)
+                    if dropdown:
+                        current_value = await dropdown.text_content()
+                        print(f"Current portfolio: {current_value}")
+
+                        if current_value and TARGET_PORTFOLIO in current_value:
+                            print(
+                                f"Correct portfolio '{TARGET_PORTFOLIO}' already selected"
+                            )
+                            return True
+
+                        await self.page.click(selector)
+                        await self.page.wait_for_selector(
+                            "[class*='menu'], [class*='option'], ul[role='listbox']",
+                            timeout=3000,
+                        )
+                        await self.page.keyboard.type(TARGET_PORTFOLIO)
+                        await self.page.wait_for_selector(
+                            "[class*='option'], [class*='menu-item']",
+                            timeout=2000,
+                        )
+                        await self.page.keyboard.press("Enter")
+
+                        verified = await self._verify_portfolio_selection()
+                        if verified:
+                            print(
+                                f"Successfully selected portfolio '{TARGET_PORTFOLIO}'"
+                            )
+                            return True
+
+                        break
+                except Exception:
+                    continue
+
+        return False
+
+    async def _verify_portfolio_selection(self) -> bool:
+        """Verify that the correct portfolio is selected."""
+        dropdown_selectors = [
+            "div.css-1uccc91-singleValue",
+            "[class*='singleValue']",
+            "[class*='Value']",
+        ]
+
+        for selector in dropdown_selectors:
+            try:
+                dropdown = await self.page.wait_for_selector(selector, timeout=3000)
+                if dropdown:
+                    current_value = await dropdown.text_content()
+                    if current_value and TARGET_PORTFOLIO in current_value:
+                        return True
+            except Exception:
+                continue
+        return False
+
     async def get_portfolio_data(self) -> dict | None:
         assert self.page is not None
         try:
             if "/dashboard" in self.page.url:
                 await self.page.goto("https://app.neuroquant.ai/portfolios")
                 await self.page.wait_for_load_state("domcontentloaded")
-                await asyncio.sleep(3)
 
-            await asyncio.sleep(2)
+            await self.page.wait_for_selector(
+                "div.css-1uccc91-singleValue, [class*='singleValue'], [class*='Value']",
+                timeout=10000,
+            )
 
-            try:
-                dropdown = await self.page.wait_for_selector(
-                    "div.css-1uccc91-singleValue, [class*='singleValue'], [class*='Value']",
-                    timeout=8000,
-                )
-                if dropdown:
-                    current_value = await dropdown.text_content()
-                    if current_value and "NQ Värde & Momentum" not in current_value:
-                        await self.page.click(
-                            "div.css-1uccc91-singleValue, [class*='singleValue']"
-                        )
-                        await asyncio.sleep(1)
-                        await self.page.keyboard.type("NQ Värde & Momentum")
-                        await asyncio.sleep(1)
-                        await self.page.keyboard.press("Enter")
-                        await asyncio.sleep(1)
-            except Exception as e:
-                print(f"Could not handle dropdown: {e}")
+            await self._select_portfolio_with_retry()
 
             date_selector = "text=/\\d{4}-\\d{2}-\\d{2}/"
             try:
@@ -182,6 +235,8 @@ class NeuroQuantScraper:
                 date_text = None
 
             table_data = await self._extract_table_data()
+
+            print(f"Successfully fetched portfolio data for '{TARGET_PORTFOLIO}'")
 
             return {
                 "date": date_text,
