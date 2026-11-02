@@ -24,6 +24,9 @@ class Config:
     max_consecutive_failures: int = int(os.getenv("MAX_CONSECUTIVE_FAILURES", "3"))
     failure_cooldown_minutes: int = int(os.getenv("FAILURE_COOLDOWN_MINUTES", "60"))
     locked_cooldown_minutes: int = int(os.getenv("LOCKED_COOLDOWN_MINUTES", "120"))
+    invalid_credentials_cooldown_minutes: int = int(
+        os.getenv("INVALID_CREDENTIALS_COOLDOWN_MINUTES", "1440")
+    )
 
     def __post_init__(self):
         self._parse_threshold()

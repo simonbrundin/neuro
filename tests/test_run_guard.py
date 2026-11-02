@@ -121,6 +121,30 @@ def test_state_persists_between_guards(state_file):
     assert "daglig gräns" in reason
 
 
+def test_alert_is_throttled(state_file):
+    now = datetime(2026, 11, 2, 12, 0)
+    guard = make_guard(state_file, now)
+
+    assert guard.should_alert() is True
+    assert guard.should_alert() is False
+
+    guard._now = lambda: now + timedelta(minutes=1441)
+    assert guard.should_alert() is True
+
+
+def test_invalid_credentials_pause_blocks_login_attempts(state_file):
+    now = datetime(2026, 11, 2, 12, 0)
+    guard = make_guard(state_file, now)
+
+    guard.record_failure(locked=True, pause_minutes=1440)
+
+    guard._now = lambda: now + timedelta(minutes=121)
+    assert guard.start_run()[0] is False
+
+    guard._now = lambda: now + timedelta(minutes=1441)
+    assert guard.start_run()[0] is True
+
+
 def test_corrupt_state_file_does_not_crash(state_file):
     state_file.write_text("inte json")
 

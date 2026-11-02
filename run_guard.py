@@ -27,6 +27,8 @@ class RunState:
     last_failure: str | None = None
     last_success: str | None = None
     locked: bool = False
+    pause_minutes: int | None = None
+    last_alert: str | None = None
 
 
 class RunGuard:
@@ -82,7 +84,9 @@ class RunGuard:
             last = datetime.fromisoformat(self.state.last_failure)
         except ValueError:
             return None
-        if self.state.locked:
+        if self.state.pause_minutes:
+            minutes = self.state.pause_minutes
+        elif self.state.locked:
             minutes = self.locked_cooldown_minutes
         else:
             minutes = self.cooldown_minutes * self.state.consecutive_failures
@@ -114,12 +118,14 @@ class RunGuard:
     def record_success(self) -> None:
         self.state.consecutive_failures = 0
         self.state.locked = False
+        self.state.pause_minutes = None
         self.state.last_success = self._now().isoformat()
         self._save()
 
-    def record_failure(self, locked: bool = False) -> None:
+    def record_failure(self, locked: bool = False, pause_minutes: int | None = None) -> None:
         self.state.consecutive_failures += 1
         self.state.last_failure = self._now().isoformat()
+        self.state.pause_minutes = pause_minutes
         if locked:
             # Ett låst konto måste återlåsas av administratör -> använd längre paus.
             self.state.locked = True
@@ -127,6 +133,20 @@ class RunGuard:
                 self.state.consecutive_failures, self.max_consecutive_failures
             )
         self._save()
+
+    def should_alert(self, minutes_between: int = 1440) -> bool:
+        """True om ett nytt larm ska skickas (max en gång per period)."""
+        now = self._now()
+        if self.state.last_alert:
+            try:
+                last = datetime.fromisoformat(self.state.last_alert)
+            except ValueError:
+                last = None
+            if last and now < last + timedelta(minutes=minutes_between):
+                return False
+        self.state.last_alert = now.isoformat()
+        self._save()
+        return True
 
     def status(self) -> str:
         return (

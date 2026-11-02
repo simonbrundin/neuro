@@ -151,18 +151,33 @@ def main():
     except AccountLockedError as e:
         print(f"Account locked: {e}")
         guard.record_failure(locked=True)
+        if guard.should_alert():
+            send_email(
+                "NeuroQuant: kontot är låst",
+                "Hej!\n\n"
+                "NeuroQuant-monitorn upptäckte att kontot är låst av NeuroQuant.\n"
+                f"Detaljer: {e}\n\n"
+                "Inga fler inloggningsförsök görs förrän pausen gått ut.\n\n"
+                "---\nNeuroQuant Monitor",
+            )
         sys.exit(0)
     except InvalidCredentialsError as e:
         print(f"Invalid credentials: {e}")
-        guard.record_failure(locked=True)
-        send_email(
-            "NeuroQuant: inloggningen misslyckades",
-            "Hej!\n\n"
-            "NeuroQuant-monitorn kunde inte logga in - lösenordet verkar vara fel.\n"
-            f"Detaljer: {e}\n\n"
-            "Uppdatera NEURO_PASSWORD i .env på pxe-servern.\n\n"
-            "---\nNeuroQuant Monitor",
+        guard.record_failure(
+            locked=True,
+            pause_minutes=config.invalid_credentials_cooldown_minutes,
         )
+        if guard.should_alert():
+            send_email(
+                "NeuroQuant: inloggningen misslyckades",
+                "Hej!\n\n"
+                "NeuroQuant-monitorn kunde inte logga in - lösenordet verkar vara fel.\n"
+                f"Detaljer: {e}\n\n"
+                "Inga nya inloggningsförsök görs inom "
+                f"{config.invalid_credentials_cooldown_minutes // 60} timmar.\n"
+                "Uppdatera NEURO_PASSWORD i .env på pxe-servern.\n\n"
+                "---\nNeuroQuant Monitor",
+            )
         sys.exit(0)
 
     if not portfolio_data:
