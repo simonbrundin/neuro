@@ -153,3 +153,8 @@ class RunGuard:
             f"{self.state.runs_today}/{self.max_runs_per_day} körningar idag, "
             f"{self.state.consecutive_failures} fel i rad"
         )
+
+    def reset(self) -> None:
+        """Nollställer all räkning (t.ex. efter att lösenordet fixats)."""
+        self.state = RunState()
+        self._save()

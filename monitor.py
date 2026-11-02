@@ -139,6 +139,11 @@ def main():
         locked_cooldown_minutes=config.locked_cooldown_minutes,
     )
 
+    if "--reset" in sys.argv:
+        guard.reset()
+        print("Run guard state reset")
+        sys.exit(0)
+
     allowed, reason = guard.start_run()
     if not allowed:
         print(f"[{datetime.now().isoformat()}] Skipping run: {reason}")
