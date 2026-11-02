@@ -16,3 +16,4 @@ test-results/
 .sidecar-start.sh
 .sidecar-base
 .td-root
+runs.json

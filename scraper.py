@@ -9,6 +9,28 @@ BASE_DIR = Path(__file__).parent
 
 TARGET_PORTFOLIO = "NQ Värde & Momentum"
 
+LOCK_MARKERS = (
+    "account locked",
+    "account has been locked",
+    "temporarily restricted",
+    "åtkomst har begränsats",
+    "kontot är låst",
+    "kontot har låsts",
+)
+
+INVALID_MARKERS = (
+    "invalid credentials",
+    "incorrect password",
+    "wrong password",
+    "ogiltigt lösenord",
+    "felaktigt lösenord",
+    "felaktig inloggning",
+)
+
+
+class AccountLockedError(Exception):
+    """Kontot är låst av NeuroQuant - inga fler inloggningsförsök får göras."""
+
 
 class NeuroQuantScraper:
     def __init__(self):
@@ -16,6 +38,7 @@ class NeuroQuantScraper:
         self.browser: Browser | None = None
         self.context: BrowserContext | None = None
         self.page: Page | None = None
+        self.login_error: str | None = None
 
     async def __aenter__(self):
         self.playwright = await async_playwright().start()
@@ -61,6 +84,9 @@ class NeuroQuantScraper:
 
         await self.page.goto("https://app.neuroquant.ai/login")
         await self.page.wait_for_load_state("domcontentloaded")
+
+        if await self._is_account_locked():
+            raise AccountLockedError("NeuroQuant har låst kontot")
 
         if await self._is_logged_in():
             print("Already logged in via cookies")
@@ -131,7 +157,33 @@ class NeuroQuantScraper:
             await self._save_cookies()
             return True
 
+        if await self._is_account_locked():
+            raise AccountLockedError("NeuroQuant har låst kontot")
+
+        self.login_error = await self._describe_login_failure()
+        print(f"Login failed: {self.login_error}")
         return False
+
+    async def _page_text(self) -> str:
+        try:
+            return (await self.page.inner_text("body"))[:500]
+        except Exception:
+            return ""
+
+    async def _is_account_locked(self) -> bool:
+        text = (await self._page_text()).lower()
+        return any(marker in text for marker in LOCK_MARKERS)
+
+    async def _describe_login_failure(self) -> str:
+        """Returnerar en kort beskrivning av varför inloggningen misslyckades."""
+        text = await self._page_text()
+        lowered = text.lower()
+        if any(marker in lowered for marker in INVALID_MARKERS):
+            return "ogiltiga inloggningsuppgifter"
+        if any(marker in lowered for marker in LOCK_MARKERS):
+            return "kontot är låst"
+        compact = " ".join(text.split())
+        return compact[:200] if compact else f"okänt fel (URL: {self.page.url})"
 
     async def _is_logged_in(self) -> bool:
         assert self.page is not None

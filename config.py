@@ -20,6 +20,10 @@ class Config:
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
     check_interval: int = int(os.getenv("CHECK_INTERVAL", "300"))
     min_change_threshold: float = 0.0
+    max_runs_per_day: int = int(os.getenv("MAX_RUNS_PER_DAY", "96"))
+    max_consecutive_failures: int = int(os.getenv("MAX_CONSECUTIVE_FAILURES", "3"))
+    failure_cooldown_minutes: int = int(os.getenv("FAILURE_COOLDOWN_MINUTES", "60"))
+    locked_cooldown_minutes: int = int(os.getenv("LOCKED_COOLDOWN_MINUTES", "120"))
 
     def __post_init__(self):
         self._parse_threshold()

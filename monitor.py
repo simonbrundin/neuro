@@ -6,7 +6,8 @@ from pathlib import Path
 from datetime import datetime
 
 from config import config, STATE_FILE
-from scraper import fetch_portfolio
+from run_guard import RunGuard
+from scraper import fetch_portfolio, AccountLockedError
 from notifier import send_notification
 
 
@@ -131,16 +132,36 @@ def is_new_data(current_data: dict, previous_data: dict) -> bool:
 
 
 def main():
+    guard = RunGuard(
+        max_runs_per_day=config.max_runs_per_day,
+        max_consecutive_failures=config.max_consecutive_failures,
+        cooldown_minutes=config.failure_cooldown_minutes,
+        locked_cooldown_minutes=config.locked_cooldown_minutes,
+    )
+
+    allowed, reason = guard.start_run()
+    if not allowed:
+        print(f"[{datetime.now().isoformat()}] Skipping run: {reason}")
+        sys.exit(0)
+
     print(f"[{datetime.now().isoformat()}] Checking NeuroQuant...")
 
-    portfolio_data = asyncio.run(fetch_portfolio())
+    try:
+        portfolio_data = asyncio.run(fetch_portfolio())
+    except AccountLockedError as e:
+        print(f"Account locked: {e}")
+        guard.record_failure(locked=True)
+        sys.exit(0)
 
     if not portfolio_data:
         print("Failed to fetch portfolio data")
+        guard.record_failure()
         sys.exit(1)
 
     portfolio_date = portfolio_data.get("date")
     print(f"Fetched data: date={portfolio_date}")
+
+    guard.record_success()
 
     if not portfolio_date:
         print("No valid date in portfolio data, skipping")
