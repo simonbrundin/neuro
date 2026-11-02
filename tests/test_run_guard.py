@@ -93,6 +93,21 @@ def test_locked_account_uses_longer_cooldown(state_file):
     assert guard.start_run()[0] is True
 
 
+def test_cooldown_grows_with_consecutive_failures(state_file):
+    now = datetime(2026, 11, 2, 12, 0)
+    guard = make_guard(state_file, now, max_consecutive_failures=2, cooldown_minutes=60)
+
+    guard.record_failure()
+    guard.record_failure()
+
+    # Två fel i rad ger 2 * 60 = 120 minuters paus.
+    guard._now = lambda: now + timedelta(minutes=61)
+    assert guard.start_run()[0] is False
+
+    guard._now = lambda: now + timedelta(minutes=121)
+    assert guard.start_run()[0] is True
+
+
 def test_state_persists_between_guards(state_file):
     now = datetime(2026, 11, 2, 12, 0)
     guard = make_guard(state_file, now, max_runs_per_day=1)

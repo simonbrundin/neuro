@@ -69,7 +69,11 @@ class RunGuard:
             self.state.runs_today = 0
 
     def cooldown_until(self, now: datetime | None = None) -> datetime | None:
-        """Returnerar tidpunkt då nästa körning får ske, eller None."""
+        """Returnerar tidpunkt då nästa körning får ske, eller None.
+
+        Pausens längd växer med antalet fel i rad, så att ett trasigt
+        inloggning inte ger 24 försök per dygn.
+        """
         if self.state.consecutive_failures < self.max_consecutive_failures:
             return None
         if not self.state.last_failure:
@@ -78,9 +82,10 @@ class RunGuard:
             last = datetime.fromisoformat(self.state.last_failure)
         except ValueError:
             return None
-        minutes = (
-            self.locked_cooldown_minutes if self.state.locked else self.cooldown_minutes
-        )
+        if self.state.locked:
+            minutes = self.locked_cooldown_minutes
+        else:
+            minutes = self.cooldown_minutes * self.state.consecutive_failures
         return last + timedelta(minutes=minutes)
 
     def start_run(self) -> tuple[bool, str]:
