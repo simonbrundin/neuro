@@ -25,12 +25,23 @@ skyddar mot att det händer:
 | Paus efter upprepade fel | 3 fel | `MAX_CONSECUTIVE_FAILURES` |
 | Pausens längd vid fel | 60 min | `FAILURE_COOLDOWN_MINUTES` |
 | Pausens längd vid låst konto | 120 min | `LOCKED_COOLDOWN_MINUTES` |
+| Pausens längd vid felaktigt lösenord | 1440 min | `INVALID_CREDENTIALS_COOLDOWN_MINUTES` |
 
 Ett låst konto upptäcks på inloggningssidan (`Account locked`) och då görs
 **inga** fler inloggningsförsök förrän pausen gått ut.
 
+Om NeuroQuant avvisar lösenordet (`Lösenordet är felaktigt`) görs inga nya
+inloggningsförsök på 24 timmar (`INVALID_CREDENTIALS_COOLDOWN_MINUTES`) och
+ett larm mejlas till mottagarna.
+
 Körningsstatistik (antal körningar, fel i rad) sparas i `runs.json`
 (gitignoreras).
+
+Nollställ räkningen efter att lösenordet har fixats:
+
+```bash
+./run.sh --reset
+```
 
 ## Övriga inställningar
 
