@@ -7,8 +7,8 @@ from datetime import datetime
 
 from config import config, STATE_FILE
 from run_guard import RunGuard
-from scraper import fetch_portfolio, AccountLockedError
-from notifier import send_notification
+from scraper import fetch_portfolio, AccountLockedError, InvalidCredentialsError
+from notifier import send_notification, send_email
 
 
 def load_state() -> dict:
@@ -151,6 +151,18 @@ def main():
     except AccountLockedError as e:
         print(f"Account locked: {e}")
         guard.record_failure(locked=True)
+        sys.exit(0)
+    except InvalidCredentialsError as e:
+        print(f"Invalid credentials: {e}")
+        guard.record_failure(locked=True)
+        send_email(
+            "NeuroQuant: inloggningen misslyckades",
+            "Hej!\n\n"
+            "NeuroQuant-monitorn kunde inte logga in - lösenordet verkar vara fel.\n"
+            f"Detaljer: {e}\n\n"
+            "Uppdatera NEURO_PASSWORD i .env på pxe-servern.\n\n"
+            "---\nNeuroQuant Monitor",
+        )
         sys.exit(0)
 
     if not portfolio_data:

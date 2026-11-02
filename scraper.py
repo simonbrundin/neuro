@@ -22,14 +22,19 @@ INVALID_MARKERS = (
     "invalid credentials",
     "incorrect password",
     "wrong password",
-    "ogiltigt lösenord",
+    "lösenordet är felaktigt",
     "felaktigt lösenord",
-    "felaktig inloggning",
+    "ogiltigt lösenord",
+    "ogiltiga inloggningsuppgifter",
 )
 
 
 class AccountLockedError(Exception):
     """Kontot är låst av NeuroQuant - inga fler inloggningsförsök får göras."""
+
+
+class InvalidCredentialsError(Exception):
+    """Inloggningen misslyckades - lösenordet stämmer inte."""
 
 
 class NeuroQuantScraper:
@@ -162,6 +167,8 @@ class NeuroQuantScraper:
 
         self.login_error = await self._describe_login_failure()
         print(f"Login failed: {self.login_error}")
+        if self.login_error == "ogiltiga inloggningsuppgifter":
+            raise InvalidCredentialsError("NeuroQuant avvisade inloggningsuppgifterna")
         return False
 
     async def _page_text(self) -> str:
