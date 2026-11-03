@@ -48,7 +48,28 @@ def is_significant(weight, threshold: float) -> bool:
     if value is None:
         # Okänd vikt - ta med hellre än att tappa en riktig ändring.
         return True
-    return value > threshold
+    return round(value, 6) > threshold
+
+
+def is_new_publication(current_data: dict, previous_data: dict) -> bool:
+    """Sant om NeuroQuant har publicerat en ny version av portföljen.
+
+    Vikterna på sajten är volatilitetsjusterade och räknas om löpande,
+    så en viktändring ensam betyder inte att portföljen publicerats om.
+    Det är publiceringsdatumet (updatedAt) som avgör.
+    """
+    if not previous_data:
+        return False
+
+    if current_data.get("date", "") != previous_data.get("date", ""):
+        return True
+
+    current_version = current_data.get("updated_at")
+    previous_version = previous_data.get("updated_at")
+    if current_version and previous_version:
+        return current_version != previous_version
+
+    return False
 
 
 def get_portfolio_changes(
@@ -90,7 +111,7 @@ def get_portfolio_changes(
                 curr_pct = float(current_weight.replace("%", "").replace(",", "."))
                 prev_pct = float(prev_weight.replace("%", "").replace(",", "."))
 
-                change_pct = abs(curr_pct - prev_pct)
+                change_pct = round(abs(curr_pct - prev_pct), 6)
 
                 if change_pct <= threshold:
                     continue
@@ -150,19 +171,6 @@ def has_actual_changes(current_data: dict, previous_data: dict) -> bool:
         or changes["added"]
         or changes["removed"]
     )
-
-
-def is_new_data(current_data: dict, previous_data: dict) -> bool:
-    if not previous_data:
-        return True
-
-    current_date = current_data.get("date", "")
-    previous_date = previous_data.get("date", "")
-
-    if current_date != previous_date:
-        return True
-
-    return has_actual_changes(current_data, previous_data)
 
 
 def main():
@@ -249,28 +257,32 @@ def main():
 
     previous_state = load_state()
 
-    if is_new_data(portfolio_data, previous_state):
-        changes = get_portfolio_changes(portfolio_data, previous_state)
-
-        if not any(changes.values()):
-            print(
-                f"Inga förändringar över tröskeln "
-                f"({config.min_change_threshold} procentenheter) - inget mejl"
-            )
-            save_state(portfolio_data)
-            return
-
-        print("New data detected! Sending notification...")
-
-        if send_notification(portfolio_data, changes):
-            print("Notification sent successfully")
-            save_state(portfolio_data)
-        else:
-            print("Failed to send notification")
-            sys.exit(1)
-    else:
-        print("No new data")
+    if not previous_state:
+        print("Ingen utgångsläge - sparar aktuell portfölj som baslinje")
         save_state(portfolio_data)
+        return
+
+    if not is_new_publication(portfolio_data, previous_state):
+        print("Ingen ny publicering - inget att rapportera")
+        return
+
+    changes = get_portfolio_changes(portfolio_data, previous_state)
+    save_state(portfolio_data)
+
+    if not any(changes.values()):
+        print(
+            f"Inga förändringar över tröskeln "
+            f"({config.min_change_threshold} procentenheter) - inget mejl"
+        )
+        return
+
+    print("Ny publicering med förändringar - skickar mejl...")
+
+    if send_notification(portfolio_data, changes):
+        print("Notification sent successfully")
+    else:
+        print("Failed to send notification")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -35,6 +35,16 @@ def test_change_exactly_at_threshold_is_filtered():
     assert changes["decreased"] == []
 
 
+def test_float_noise_does_not_leak_changes_over_threshold():
+    # 3.1 - 2.9 = 0.20000000000000018 i flytal - ska ändå räknas som 0.2.
+    previous = portfolio([row("BOL.ST", "3.1%")])
+    current = portfolio([row("BOL.ST", "2.9%")])
+
+    changes = get_portfolio_changes(current, previous, threshold=0.2)
+
+    assert changes["decreased"] == []
+
+
 def test_change_above_threshold_is_reported():
     previous = portfolio([row("AAPL", "10.0%")])
     current = portfolio([row("AAPL", "10.21%")])

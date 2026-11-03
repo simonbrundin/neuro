@@ -314,6 +314,7 @@ class NeuroQuantScraper:
 
         return {
             "date": portfolio_date(portfolio),
+            "updated_at": portfolio.get("updatedAt", ""),
             "data": build_table_rows(items),
             "timestamp": datetime.now().isoformat(),
         }
