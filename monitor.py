@@ -28,6 +28,29 @@ def save_state(data: dict):
         json.dump(data, f, indent=2)
 
 
+def parse_weight(weight) -> float | None:
+    """Tolkar en vikt som '3.8%' till 3.8."""
+    if weight is None:
+        return None
+    try:
+        return float(str(weight).replace("%", "").replace(",", ".").strip())
+    except (ValueError, AttributeError):
+        return None
+
+
+def is_significant(weight, threshold: float) -> bool:
+    """Sant om en viktändring är större än tröskeln.
+
+    En post som tillkommit (vikt > 0) eller försvunnit (tidigare vikt > 0)
+    räknas som en ändring på hela vikten.
+    """
+    value = parse_weight(weight)
+    if value is None:
+        # Okänd vikt - ta med hellre än att tappa en riktig ändring.
+        return True
+    return value > threshold
+
+
 def get_portfolio_changes(
     current_data: dict, previous_data: dict, threshold: float = None
 ) -> dict:
@@ -49,7 +72,7 @@ def get_portfolio_changes(
     increased = []
     decreased = []
     added = []
-    removed = list(prev_dict.keys())
+    removed = []
 
     for row in current_portfolio[1:]:
         if not row or not row[0]:
@@ -58,9 +81,6 @@ def get_portfolio_changes(
         stock_name = row[0]
         current_weight = row[2] if len(row) > 2 else ""
         current_stocks.add(stock_name)
-
-        if stock_name in removed:
-            removed.remove(stock_name)
 
         if stock_name in prev_dict:
             prev_row = prev_dict[stock_name]
@@ -72,7 +92,7 @@ def get_portfolio_changes(
 
                 change_pct = abs(curr_pct - prev_pct)
 
-                if change_pct < threshold:
+                if change_pct <= threshold:
                     continue
 
                 if curr_pct > prev_pct:
@@ -94,12 +114,21 @@ def get_portfolio_changes(
             except (ValueError, AttributeError):
                 pass
         else:
-            added.append(
-                {
-                    "name": stock_name,
-                    "new_weight": current_weight,
-                }
-            )
+            if is_significant(current_weight, threshold):
+                added.append(
+                    {
+                        "name": stock_name,
+                        "new_weight": current_weight,
+                    }
+                )
+
+    # Positioner som fanns tidigare men inte finns nu.
+    for name, prev_row in prev_dict.items():
+        if name in current_stocks:
+            continue
+        prev_weight = prev_row[2] if len(prev_row) > 2 else ""
+        if is_significant(prev_weight, threshold):
+            removed.append({"name": name, "old_weight": prev_weight})
 
     return {
         "increased": increased,
@@ -221,9 +250,17 @@ def main():
     previous_state = load_state()
 
     if is_new_data(portfolio_data, previous_state):
-        print("New data detected! Sending notification...")
-
         changes = get_portfolio_changes(portfolio_data, previous_state)
+
+        if not any(changes.values()):
+            print(
+                f"Inga förändringar över tröskeln "
+                f"({config.min_change_threshold} procentenheter) - inget mejl"
+            )
+            save_state(portfolio_data)
+            return
+
+        print("New data detected! Sending notification...")
 
         if send_notification(portfolio_data, changes):
             print("Notification sent successfully")

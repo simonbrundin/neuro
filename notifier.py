@@ -58,7 +58,10 @@ Ny portföljdata har publicerats för NQ Värde & Momentum.
         body += "\nInga"
     else:
         for stock in removed:
-            body += f"\n- {stock}"
+            if isinstance(stock, dict):
+                body += f"\n- {stock['name']} (var {stock.get('old_weight', '')})"
+            else:
+                body += f"\n- {stock}"
 
     body += """
 
