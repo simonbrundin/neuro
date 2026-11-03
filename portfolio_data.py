@@ -4,7 +4,7 @@ Hålls separat från scraper.py (som gör webbläsaranrop) så att logiken kan
 testas utan browser.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 LOCK_MARKERS = (
@@ -128,12 +128,20 @@ def is_invalid_credentials_text(text: str) -> bool:
 
 
 def parse_email_date(value: str) -> datetime | None:
-    """Tolkar ett e-postdatum, returnerar None om det inte går."""
+    """Tolkar ett e-postdatum, returnerar None om det inte går.
+
+    Resultatet är alltid timezone-medvetet (UTC) så att det kan jämföras
+    med datetime.now(timezone.utc).
+    """
     if not value:
         return None
     try:
         from email.utils import parsedate_to_datetime
 
-        return parsedate_to_datetime(value)
+        parsed = parsedate_to_datetime(value)
     except (TypeError, ValueError):
         return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed

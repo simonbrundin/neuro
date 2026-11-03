@@ -14,7 +14,7 @@ import asyncio
 import imaplib
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email import message_from_bytes
 from pathlib import Path
 
@@ -234,7 +234,7 @@ class NeuroQuantScraper:
             raise VerificationCodeError("Hittade inte fält för verifieringskod")
 
         code = await asyncio.to_thread(
-            fetch_verification_code, datetime.now() - timedelta(minutes=5)
+            fetch_verification_code, datetime.now(timezone.utc) - timedelta(minutes=5)
         )
         if not code:
             raise VerificationCodeError("Fick ingen verifieringskod från inkorgen")
