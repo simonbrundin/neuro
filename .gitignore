@@ -17,3 +17,6 @@ test-results/
 .sidecar-base
 .td-root
 runs.json
+
+# Sessionscookies för NeuroQuant - innehåller inloggningstoken
+cookies.json
