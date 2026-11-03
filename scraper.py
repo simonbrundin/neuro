@@ -282,6 +282,7 @@ class NeuroQuantScraper:
             "id": portfolio["id"],
             "value": portfolio,
             "label": portfolio["title"],
+            "tooltip": portfolio.get("descriptionSE", ""),
             "updatedAt": portfolio.get("updatedAt", ""),
             "group": portfolio.get("tag", ""),
         }
