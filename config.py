@@ -18,6 +18,7 @@ class Config:
     neuro_password: str = os.getenv("NEURO_PASSWORD", "")
     smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    imap_host: str = os.getenv("IMAP_HOST", "imap.gmail.com")
     check_interval: int = int(os.getenv("CHECK_INTERVAL", "300"))
     min_change_threshold: float = 0.0
     max_runs_per_day: int = int(os.getenv("MAX_RUNS_PER_DAY", "96"))

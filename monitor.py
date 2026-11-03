@@ -7,7 +7,12 @@ from datetime import datetime
 
 from config import config, STATE_FILE
 from run_guard import RunGuard
-from scraper import fetch_portfolio, AccountLockedError, InvalidCredentialsError
+from scraper import (
+    fetch_portfolio,
+    AccountLockedError,
+    InvalidCredentialsError,
+    VerificationCodeError,
+)
 from notifier import send_notification, send_email
 
 
@@ -184,6 +189,20 @@ def main():
                 "---\nNeuroQuant Monitor",
             )
         sys.exit(0)
+
+    except VerificationCodeError as e:
+        print(f"Verification code error: {e}")
+        guard.record_failure()
+        if guard.should_alert():
+            send_email(
+                "NeuroQuant: kunde inte hämta verifieringskoden",
+                "Hej!\n\n"
+                "NeuroQuant-monitorn kunde inte hämta verifieringskoden från inkorgen.\n"
+                f"Detaljer: {e}\n\n"
+                "Kontrollera att NeuroQuant-kontot och inkorgen är samma konto.\n\n"
+                "---\nNeuroQuant Monitor",
+            )
+        sys.exit(1)
 
     if not portfolio_data:
         print("Failed to fetch portfolio data")
