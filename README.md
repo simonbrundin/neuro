@@ -14,6 +14,23 @@ Programmet körs via cron på pxe-serven:
 Det ger 96 körningar per dygn. Programmet har dessutom ett eget skydd
 (se nedan), så även om cron-frekvensen ändras finns en gräns.
 
+## Hur datan hämtas
+
+NeuroQuant exponerar ett tRPC-API (`app.neuroquant.ai/api/trpc`) som ger
+strukturerad portföljdata - det används i stället för DOM-skrapping.
+`scraper.py`:
+
+1. Loggar in med sparade cookies (`cookies.json`) om de fortfarande gäller.
+2. Annars loggas in med e-post + lösenord. Kontot kräver ett 6-siffrigt
+   verifieringskode som skickas till e-post - koden hämtas automatiskt från
+   inkorgen via IMAP (`EMAIL_USER` / `EMAIL_PASSWORD`).
+3. Hämtar portföljlistan via API:t, väljer "NQ Värde & Momentum" på titel
+   och hämtar positionerna med vikt och datum (`updatedAt`).
+
+`portfolio_data.py` innehåller formatering och tolkning (tabellrader,
+datum, verifieringskod, igenkänning av låst konto/felaktigt lösenord) och
+testas utan browser.
+
 ## Skydd mot låsta konton
 
 NeuroQuant låser ett konto efter 100 misslyckade inloggningsförsök. `run_guard.py`
@@ -23,7 +40,7 @@ skyddar mot att det händer:
 |---|---|---|
 | Max antal körningar per dygn | 96 | `MAX_RUNS_PER_DAY` |
 | Paus efter upprepade fel | 3 fel | `MAX_CONSECUTIVE_FAILURES` |
-| Pausens längd vid fel | 60 min | `FAILURE_COOLDOWN_MINUTES` |
+| Pausens längd vid fel | 60 min × antal fel | `FAILURE_COOLDOWN_MINUTES` |
 | Pausens längd vid låst konto | 120 min | `LOCKED_COOLDOWN_MINUTES` |
 | Pausens längd vid felaktigt lösenord | 1440 min | `INVALID_CREDENTIALS_COOLDOWN_MINUTES` |
 
@@ -32,7 +49,7 @@ Ett låst konto upptäcks på inloggningssidan (`Account locked`) och då görs
 
 Om NeuroQuant avvisar lösenordet (`Lösenordet är felaktigt`) görs inga nya
 inloggningsförsök på 24 timmar (`INVALID_CREDENTIALS_COOLDOWN_MINUTES`) och
-ett larm mejlas till mottagarna.
+ett larm mejlas till mottagarna (max en gång per dygn).
 
 Körningsstatistik (antal körningar, fel i rad) sparas i `runs.json`
 (gitignoreras).
@@ -50,13 +67,16 @@ Variablerna i `.env`:
 | Variabel | Beskrivning |
 |---|---|
 | `NEURO_EMAIL` / `NEURO_PASSWORD` | Inloggning till NeuroQuant |
+| `EMAIL_USER` / `EMAIL_PASSWORD` | Skicka och läsa e-post (SMTP + IMAP) |
 | `RECIPIENT_EMAIL` | Mottagare av notifieringar (komma-separerad lista) |
 | `SMTP_HOST` / `SMTP_PORT` | SMTP-server för utgående e-post |
+| `IMAP_HOST` | IMAP-server för att hämta verifieringskoder |
 | `MIN_CHANGE_THRESHOLD` | Minsta viktändring (procentenheter) som triggar e-post |
 
 ## Utveckling
 
 ```bash
 .venv/bin/python -m pytest tests/ -q   # tester
-./run.sh                                # kör en gång manuellt
+.venv/bin/behave                         # feature-tester
+./run.sh                                 # kör en gång manuellt
 ```
