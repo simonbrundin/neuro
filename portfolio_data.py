@@ -5,6 +5,7 @@ testas utan browser.
 """
 
 from datetime import datetime
+import re
 
 LOCK_MARKERS = (
     "account locked",
@@ -18,6 +19,7 @@ LOCK_MARKERS = (
 INVALID_MARKERS = (
     "invalid credentials",
     "incorrect password",
+    "password is incorrect",
     "wrong password",
     "lösenordet är felaktigt",
     "felaktigt lösenord",
@@ -100,15 +102,17 @@ def parse_verification_code(text: str) -> str | None:
     if not text:
         return None
 
+    fallback = None
     for line in text.splitlines():
-        line = line.strip()
-        if not line:
+        matches = re.findall(r"(?<!\d)(\d{6})(?!\d)", line)
+        if not matches:
             continue
-        digits = [word for word in line.replace(" ", "").split() if word.isdigit() and len(word) == 6]
-        if digits:
-            return digits[0]
+        if "kod" in line.lower() or "code" in line.lower():
+            return matches[0]
+        if fallback is None:
+            fallback = matches[0]
 
-    return None
+    return fallback
 
 
 def is_locked_text(text: str) -> bool:
