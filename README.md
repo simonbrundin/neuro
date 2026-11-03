@@ -1,7 +1,31 @@
 # neuro
 
 Övervakar en NeuroQuant-portfölj ("NQ Värde & Momentum") och skickar e-post
-när portföljen ändras.
+när portföljen publiceras om med materiella förändringar.
+
+## När skickas ett mejl?
+
+Ett mejl skickas när **två** villkor är uppfyllda:
+
+1. NeuroQuant har publicerat en ny version av portföljen
+   (`updatedAt`/datum har ändrats), och
+2. minst en position ändrats mer än `MIN_CHANGE_THRESHOLD` procentenheter
+   (standard 0,2).
+
+Vikterna som visas på NeuroQuant-sajten är volatilitetsjusterade och räknas
+om löpande, så en viktändring ensam räcker inte för att trigga ett mejl -
+då hade varje ny publicering kunnat ge tiotals mejl.
+
+Ändringar mäts mellan två publiceringar: state-filen uppdateras bara när
+en ny publicering upptäcks, så en ändring som räknats om dagligen inte
+rapporteras.
+
+Tröskeln är strikt ("större än 0,2"), så en ändring på exakt 0,2
+procentenheter filtreras bort. Nya och borttagna positioner filtreras på
+samma sätt (en ny position på 0,1 % är en ändring på 0,1 procentenheter).
+
+Om en publicering bara innehåller förändringar under tröskeln skickas inget
+mejl.
 
 ## Körning
 
@@ -71,7 +95,7 @@ Variablerna i `.env`:
 | `RECIPIENT_EMAIL` | Mottagare av notifieringar (komma-separerad lista) |
 | `SMTP_HOST` / `SMTP_PORT` | SMTP-server för utgående e-post |
 | `IMAP_HOST` | IMAP-server för att hämta verifieringskoder |
-| `MIN_CHANGE_THRESHOLD` | Minsta viktändring (procentenheter) som triggar e-post |
+| `MIN_CHANGE_THRESHOLD` | Minsta viktändring (procentenheter) som triggar e-post. Ändringar måste vara **större** än värdet |
 
 ## Utveckling
 
